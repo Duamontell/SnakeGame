@@ -3,14 +3,17 @@
 #include <conio.h>
 #include <Windows.h>
 
-// Константы
-const int ROWS = 4;
-const int COLS = 2;
+const int  ROWS = 16;
+const int  COLS = 8;
 const char EMPTY_CELL = '.';
 const char SNAKE_BODY_CELL = 'O';
 const char SNAKE_HEAD_CELL = '@';
 const char APPLE_CELL = '*';
-const int SLEEP_TIMER = 400;
+const char TOP_DIRECTION = 'w';
+const char LEFT_DIRECTION = 'a';
+const char RIGHT_DIRECTION = 'd';
+const char DOWN_DIRECTION = 's';
+const int  SLEEP_TIMER = 400;
 
 struct Apple {
 	int x, y;
@@ -21,30 +24,40 @@ std::vector<std::vector<char>> createField() {
 	return std::vector<std::vector<char>>(ROWS, std::vector<char>(COLS, EMPTY_CELL));
 }
 
-void printField(const std::vector<std::vector<char>>& field) {
+std::string getFieldAsString(const std::vector<std::vector<char>>& field) {
 	system("cls");
+	std::string result;
 	for (const auto& row : field) {
 		for (char cell : row) {
-			std::cout << cell << ' ';
+			result += cell;
+			result += ' ';
 		}
-		std::cout << '\n';
+		result += '\n';
 	}
+	return result;
 }
 
-void placeApple(std::vector<std::vector<char>>& field, const Apple& apple) {
-	field[apple.x][apple.y] = APPLE_CELL;
+std::vector<std::vector<char>> addAppleToField(const std::vector<std::vector<char>>& field, const Apple& apple) {
+	auto updatedField = field;
+	updatedField[apple.x][apple.y] = APPLE_CELL;
+	return updatedField;
 }
 
-void placeSnake(std::vector<std::vector<char>>& field, const std::vector<std::pair<int, int>>& snake) {
+std::vector<std::vector<char>> addSnakeToField(const std::vector<std::vector<char>>& field, const std::vector<std::pair<int, int>>& snake) {
+	auto updatedField = field;
 	if (!snake.empty()) {
-		field[snake.front().first][snake.front().second] = SNAKE_HEAD_CELL;
+		updatedField[snake.front().first][snake.front().second] = SNAKE_HEAD_CELL;
 		for (size_t i = 1; i < snake.size(); ++i) {
-			field[snake[i].first][snake[i].second] = SNAKE_BODY_CELL;
+			updatedField[snake[i].first][snake[i].second] = SNAKE_BODY_CELL;
 		}
 	}
+	return updatedField;
 }
 
 Apple generateApple(const std::vector<std::pair<int, int>>& snake) {
+	if (snake.size() == ROWS * COLS) {
+		return Apple(-1, -1);
+	}
 	int x, y;
 	do {
 		x = rand() % ROWS;
@@ -56,18 +69,24 @@ Apple generateApple(const std::vector<std::pair<int, int>>& snake) {
 std::vector<std::pair<int, int>> generateSnake() {
 	int x = rand() % ROWS;
 	int y = rand() % COLS;
-	// Сегмент головы и первый сегмент тела
+
 	int nx = (x + 1 < ROWS) ? x + 1 : x - 1;
 	return { {x, y}, {nx, y} };
+	/*if (ROWS > 1) {
+		int nx = (x + 1 < ROWS) ? x + 1 : x - 1;
+		return { {x, y}, {nx, y} };
+	} else if (COLS > 1) {
+		int ny = (y + 1 < COLS) ? y + 1 : y - 1;
+		return { {x, y}, {x, ny} };
+	}*/
 }
 
-// Движение змейки
 bool moveSnake(std::vector<std::pair<int, int>>& snake, char direction, const Apple& apple, bool& ateApple) {
 	int dx = 0, dy = 0;
-	if (direction == 'w') dx = -1;
-	if (direction == 's') dx = 1;
-	if (direction == 'a') dy = -1;
-	if (direction == 'd') dy = 1;
+	if (direction == TOP_DIRECTION) dx = -1;
+	if (direction == DOWN_DIRECTION) dx = 1;
+	if (direction == LEFT_DIRECTION) dy = -1;
+	if (direction == RIGHT_DIRECTION) dy = 1;
 
 	int newX = snake.front().first + dx;
 	int newY = snake.front().second + dy;
@@ -90,11 +109,10 @@ int main() {
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 
-	srand(static_cast<unsigned>(time(nullptr)));  // Используем стандартный rand
+	srand(static_cast<unsigned>(time(0)));
 
 	Apple apple = generateApple({});
-	auto snake = generateSnake();
-
+	std::vector<std::pair<int, int>> snake = generateSnake();
 	auto field = createField();
 
 	bool gameRunning = true;
@@ -103,9 +121,9 @@ int main() {
 
 	while (gameRunning) {
 		field = createField();
-		placeApple(field, apple);
-		placeSnake(field, snake);
-		printField(field);
+		field = addAppleToField(field, apple);
+		field = addSnakeToField(field, snake);
+		std::cout << getFieldAsString(field);
 
 		Sleep(SLEEP_TIMER);
 
@@ -116,10 +134,10 @@ int main() {
 
 		if (_kbhit()) {
 			char newDirection = _getch();
-			if ((direction == 'w' && newDirection != 's') ||
-				(direction == 's' && newDirection != 'w') ||
-				(direction == 'a' && newDirection != 'd') ||
-				(direction == 'd' && newDirection != 'a')) {
+			if ((direction == TOP_DIRECTION && newDirection != DOWN_DIRECTION) ||
+				(direction == DOWN_DIRECTION && newDirection != TOP_DIRECTION) ||
+				(direction == LEFT_DIRECTION && newDirection != RIGHT_DIRECTION) ||
+				(direction == RIGHT_DIRECTION && newDirection != LEFT_DIRECTION)) {
 				direction = newDirection;
 			}
 		}
@@ -132,8 +150,11 @@ int main() {
 
 		if (ateApple) {
 			apple = generateApple(snake);
+			if (apple.x == -1 && apple.y == -1) {
+				std::cout << "Вы победили!\n";
+				break;
+			}
 		}
-
 	}
 
 	return 0;
